@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -16,6 +14,7 @@ func main() {
 
 	conn, err := amqp.Dial(rabbitMQConnection)
 	if err != nil {
+		fmt.Println("Error connecting to RabbitMQ: ", err)
 		panic(err)
 	}
 	defer conn.Close()
@@ -37,8 +36,42 @@ func main() {
 		panic(err)
 	}
 
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
+	gameState := gamelogic.NewGameState(username)
 
+	for {
+		input := gamelogic.GetInput()
+		if len(input) == 0 {
+			continue
+		}
+
+		switch input[0] {
+		case "spawn":
+			err = gameState.CommandSpawn(input)
+			if err != nil {
+				fmt.Println("Error spawning unit: ", err)
+			}
+			break
+		case "move":
+			move, err := gameState.CommandMove(input)
+			if err != nil {
+				fmt.Println("Error moving unit: ", err)
+			}
+			fmt.Printf("\nMoved to %s", move.ToLocation)
+			break
+		case "status":
+			gameState.CommandStatus()
+			break
+		case "help":
+			gamelogic.PrintClientHelp()
+			break
+		case "spam":
+			fmt.Println("Spamming not allowed yet!")
+		case "quit":
+			gamelogic.PrintQuit()
+			return
+		default:
+			fmt.Println("Unknown command")
+			break
+		}
+	}
 }
