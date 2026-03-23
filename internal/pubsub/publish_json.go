@@ -80,7 +80,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T),
+	handler func(T) Acktype,
 ) error {
 	chn, _, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
@@ -102,11 +102,25 @@ func SubscribeJSON[T any](
 				continue
 			}
 
-			handler(val)
-
-			err = msg.Ack(false)
-			if err != nil {
-				fmt.Printf("Error acknowledging message: %v\n", err)
+			switch handler(val) {
+			case Ack:
+				err = msg.Ack(false)
+				if err != nil {
+					fmt.Printf("Error acknowledging message: %v\n", err)
+				}
+				fmt.Println("Acknowledged message")
+			case NackDiscard:
+				err = msg.Nack(false, false)
+				if err != nil {
+					fmt.Printf("Error nacking message: %v\n", err)
+				}
+				fmt.Println("Nacked Discard message")
+			case NackRequeue:
+				err = msg.Nack(false, true)
+				if err != nil {
+					fmt.Printf("Error nacking message: %v\n", err)
+				}
+				fmt.Println("Nacked Requeue message")
 			}
 		}
 	}()
@@ -115,8 +129,15 @@ func SubscribeJSON[T any](
 }
 
 type SimpleQueueType string
+type Acktype int
 
 const (
 	Durable   SimpleQueueType = "durable"
 	Transient SimpleQueueType = "transient"
+)
+
+const (
+	Ack Acktype = iota
+	NackDiscard
+	NackRequeue
 )
