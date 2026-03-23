@@ -24,6 +24,15 @@ func main() {
 	}
 	defer chnl.Close()
 
+	queueKey := fmt.Sprintf("%s.*", routing.GameLogSlug)
+	_, _, err = pubsub.DeclareAndBind(
+		conn,
+		routing.ExchangePerilTopic,
+		routing.GameLogSlug,
+		queueKey,
+		pubsub.Durable,
+	)
+
 	gamelogic.PrintServerHelp()
 
 	for {
@@ -55,6 +64,4 @@ func main() {
 			break
 		}
 	}
-
-	println("Connected to RabbitMQ!")
 }

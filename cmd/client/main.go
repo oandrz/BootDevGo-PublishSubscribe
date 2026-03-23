@@ -24,19 +24,21 @@ func main() {
 		panic(err)
 	}
 
+	gameState := gamelogic.NewGameState(username)
+
 	queueName := fmt.Sprintf("%s.%v", routing.PauseKey, username)
-	_, _, err = pubsub.DeclareAndBind(
+	err = pubsub.SubscribeJSON(
 		conn,
 		routing.ExchangePerilDirect,
 		queueName,
 		routing.PauseKey,
 		pubsub.Transient,
+		handlerPause(gameState),
 	)
 	if err != nil {
+		fmt.Println("Error subscribing to pause channel: ", err)
 		panic(err)
 	}
-
-	gameState := gamelogic.NewGameState(username)
 
 	for {
 		input := gamelogic.GetInput()
@@ -73,5 +75,12 @@ func main() {
 			fmt.Println("Unknown command")
 			break
 		}
+	}
+}
+
+func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
+	return func(ps routing.PlayingState) {
+		defer fmt.Print(">")
+		gs.HandlePause(ps)
 	}
 }

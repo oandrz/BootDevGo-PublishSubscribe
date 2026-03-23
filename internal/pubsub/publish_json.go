@@ -3,6 +3,8 @@ package pubsub
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -28,24 +30,88 @@ func DeclareAndBind(
 	exchange,
 	queueName,
 	key string,
-	queueType SimpleQueueType, // SimpleQueueType is an "enum" type I made to represent "durable" or "transient"
+	queueType SimpleQueueType,
 ) (*amqp.Channel, amqp.Queue, error) {
 	chnl, err := conn.Channel()
 	if err != nil {
-		panic(err)
+		return nil, amqp.Queue{}, err
 	}
-	defer chnl.Close()
 
-	queue, err := chnl.QueueDeclare(queueName, queueType == Durable, queueType == Transient, queueType == Transient, false, nil)
-	if err != nil {
-		panic(err)
+	exchangeType := "direct"
+	if strings.Contains(exchange, "topic") {
+		exchangeType = "topic"
 	}
+	err = chnl.ExchangeDeclare(
+		exchange,
+		exchangeType,
+		true,
+		false,
+		false,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, amqp.Queue{}, err
+	}
+
+	queue, err := chnl.QueueDeclare(
+		queueName,
+		queueType == Durable,
+		queueType == Transient,
+		queueType == Transient,
+		false,
+		nil,
+	)
+	if err != nil {
+		return nil, amqp.Queue{}, err
+	}
+
 	err = chnl.QueueBind(queue.Name, key, exchange, false, nil)
 	if err != nil {
-		panic(err)
+		return nil, amqp.Queue{}, err
 	}
 
 	return chnl, queue, nil
+}
+
+func SubscribeJSON[T any](
+	conn *amqp.Connection,
+	exchange,
+	queueName,
+	key string,
+	queueType SimpleQueueType,
+	handler func(T),
+) error {
+	chn, _, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
+	if err != nil {
+		return err
+	}
+
+	deliveryChannel, err := chn.Consume(queueName, "", false, false, false, false, nil)
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		defer chn.Close()
+		for msg := range deliveryChannel {
+			var val T
+			err = json.Unmarshal(msg.Body, &val)
+			if err != nil {
+				fmt.Printf("Error unmarshaling message: %v\n", err)
+				continue
+			}
+
+			handler(val)
+
+			err = msg.Ack(false)
+			if err != nil {
+				fmt.Printf("Error acknowledging message: %v\n", err)
+			}
+		}
+	}()
+
+	return nil
 }
 
 type SimpleQueueType string
