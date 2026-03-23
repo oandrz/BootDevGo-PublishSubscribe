@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -54,13 +55,16 @@ func DeclareAndBind(
 		return nil, amqp.Queue{}, err
 	}
 
+	args := amqp.Table{
+		"x-dead-letter-exchange": routing.ExchangePerilDeadLetter,
+	}
 	queue, err := chnl.QueueDeclare(
 		queueName,
 		queueType == Durable,
 		queueType == Transient,
 		queueType == Transient,
 		false,
-		nil,
+		args,
 	)
 	if err != nil {
 		return nil, amqp.Queue{}, err
