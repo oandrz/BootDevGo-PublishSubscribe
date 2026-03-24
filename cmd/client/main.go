@@ -147,8 +147,9 @@ func handlerMove(gs *gamelogic.GameState) func(move gamelogic.ArmyMove, chn *amq
 			)
 			if err != nil {
 				fmt.Println("Error publishing war message: ", err)
+				return pubsub.NackRequeue
 			}
-			return pubsub.NackRequeue
+			return pubsub.Ack
 		}
 
 		fmt.Println("error: unknown move outcome")
