@@ -84,7 +84,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	queueType SimpleQueueType,
-	handler func(T) Acktype,
+	handler func(T, *amqp.Channel) Acktype,
 ) error {
 	chn, _, err := DeclareAndBind(conn, exchange, queueName, key, queueType)
 	if err != nil {
@@ -106,7 +106,7 @@ func SubscribeJSON[T any](
 				continue
 			}
 
-			switch handler(val) {
+			switch handler(val, chn) {
 			case Ack:
 				err = msg.Ack(false)
 				if err != nil {
