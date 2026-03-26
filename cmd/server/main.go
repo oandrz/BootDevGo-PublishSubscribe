@@ -25,12 +25,13 @@ func main() {
 	defer chnl.Close()
 
 	queueKey := fmt.Sprintf("%s.*", routing.GameLogSlug)
-	_, _, err = pubsub.DeclareAndBind(
+	err = pubsub.SubscribeGob(
 		conn,
 		routing.ExchangePerilTopic,
 		routing.GameLogSlug,
 		queueKey,
 		pubsub.Durable,
+		handleLog(),
 	)
 
 	gamelogic.PrintServerHelp()
@@ -63,5 +64,17 @@ func main() {
 			fmt.Println("Unknown command")
 			break
 		}
+	}
+}
+
+func handleLog() func(log routing.GameLog, chn *amqp.Channel) pubsub.Acktype {
+	return func(log routing.GameLog, ch *amqp.Channel) pubsub.Acktype {
+		defer fmt.Print(">")
+		err := gamelogic.WriteLog(log)
+		if err != nil {
+			fmt.Println("Error writing log: ", err)
+			return pubsub.NackRequeue
+		}
+		return pubsub.Ack
 	}
 }
