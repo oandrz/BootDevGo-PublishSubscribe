@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"time"
 
+	"github.com/bootdotdev/learn-pub-sub-starter/internal"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
@@ -169,13 +171,64 @@ func handlerWar(gs *gamelogic.GameState) func(gamelogic.RecognitionOfWar, *amqp.
 			fmt.Println("No units to fight!")
 			return pubsub.NackDiscard
 		case gamelogic.WarOutcomeOpponentWon:
-			fmt.Println("You lost the war!")
+			var winner, loser string
+			if gs.GetUsername() == warRecognition.Attacker.Username {
+				winner = warRecognition.Defender.Username
+				loser = warRecognition.Attacker.Username
+			} else {
+				winner = warRecognition.Attacker.Username
+				loser = warRecognition.Defender.Username
+			}
+			msg := fmt.Sprintf("%s won a war against %s", winner, loser)
+
+			err := internal.PublishGameLog(ch, routing.GameLog{
+				CurrentTime: time.Now(),
+				Message:     msg,
+				Username:    warRecognition.Attacker.Username,
+			})
+			if err != nil {
+				fmt.Println("Error publishing game log: ", err)
+				return pubsub.NackRequeue
+			}
+
+			fmt.Println(msg)
 			return pubsub.Ack
 		case gamelogic.WarOutcomeYouWon:
-			fmt.Println("You won the war!")
+			var winner, loser string
+			if gs.GetUsername() == warRecognition.Attacker.Username {
+				winner = warRecognition.Attacker.Username
+				loser = warRecognition.Defender.Username
+			} else {
+				winner = warRecognition.Defender.Username
+				loser = warRecognition.Attacker.Username
+			}
+			msg := fmt.Sprintf("%s won a war against %s", winner, loser)
+
+			err := internal.PublishGameLog(ch, routing.GameLog{
+				CurrentTime: time.Now(),
+				Message:     msg,
+				Username:    warRecognition.Attacker.Username,
+			})
+			if err != nil {
+				fmt.Println("Error publishing game log: ", err)
+				return pubsub.NackRequeue
+			}
+
+			fmt.Println(msg)
 			return pubsub.Ack
 		case gamelogic.WarOutcomeDraw:
-			fmt.Println("The war ended in a draw!")
+			msg := fmt.Sprintf("A war between %s and %s resulted in a draw", warRecognition.Attacker.Username, warRecognition.Defender.Username)
+
+			err := internal.PublishGameLog(ch, routing.GameLog{
+				CurrentTime: time.Now(),
+				Message:     msg,
+				Username:    warRecognition.Attacker.Username,
+			})
+			if err != nil {
+				fmt.Println("Error publishing game log: ", err)
+				return pubsub.NackRequeue
+			}
+			fmt.Println(msg)
 			return pubsub.Ack
 		}
 
