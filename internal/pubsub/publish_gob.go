@@ -42,8 +42,15 @@ func SubscribeGob[T any](
 		return err
 	}
 
+	err = chn.Qos(10, 0, false)
+	if err != nil {
+		fmt.Printf("Error setting QoS: %v\n", err)
+		return err
+	}
+
 	deliveryChannel, err := chn.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {
+		fmt.Printf("Error consuming messages: %v\n", err)
 		return err
 	}
 
@@ -57,6 +64,7 @@ func SubscribeGob[T any](
 			err := decoder.Decode(&val)
 			if err != nil {
 				fmt.Printf("Error unmarshaling message: %v\n", err)
+				msg.Nack(false, false)
 				continue
 			}
 

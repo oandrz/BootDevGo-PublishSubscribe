@@ -103,6 +103,7 @@ func SubscribeJSON[T any](
 			err = json.Unmarshal(msg.Body, &val)
 			if err != nil {
 				fmt.Printf("Error unmarshaling message: %v\n", err)
+				msg.Nack(false, false)
 				continue
 			}
 
